@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import "../plugins/custom_css/chatbot.css";
 
 const ChatBot = () => {
   const botResponses = [
@@ -9,33 +10,117 @@ const ChatBot = () => {
     "Thank you for that message. It's helpful.",
   ];
 
-  const [messages, setMessages] = useState([
-    {
-      text: "Hello! Ask me anything.",
-      isUser: false,
-      liked: false,
-      disliked: false,
-      feedbackText: null,
-    },
-  ]);
+  const welcomeMessages = [
+    "Hey! Ask me anything.",
+    "How may I help you?",
+    "Hello there! What's on your mind?",
+    "Hi! Ready to chat.",
+    "What can I do for you?",
+  ];
 
+  const emojis = [
+    "😀",
+    "😂",
+    "🥰",
+    "👍",
+    "🙏",
+    "❤️",
+    "🎉",
+    "🔥",
+    "💯",
+    "🤯",
+    "🚀",
+    "💡",
+    "🤔",
+  ];
+
+  const [messages, setMessages] = useState([]);
+  const [showInitialMessage, setShowInitialMessage] = useState(true);
+  const [welcomeMessage, setWelcomeMessage] = useState(""); // Store the welcome message
   const [userInput, setUserInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(""); // State for the search term
+  const [matchedIndices, setMatchedIndices] = useState([]); // Array of indices for matches
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(-1); // Index of the current match
+  const [showScrollDownButton, setShowScrollDownButton] = useState(false); // State for scroll down button
   const chatBoxRef = useRef(null);
+  const prevMessagesLength = useRef(0);
+  const emojiButtonRef = useRef(null);
+  const messageRefs = useRef([]); // Ref for each message element
+
+  // Set welcome message only once when component mounts
+  useEffect(() => {
+    setWelcomeMessage(
+      welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)]
+    );
+  }, []);
+
+  // Handle scroll detection for scroll down button
+  useEffect(() => {
+    const chatBox = chatBoxRef.current;
+
+    const handleScroll = () => {
+      if (!chatBox) return;
+
+      const { scrollTop, scrollHeight, clientHeight } = chatBox;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 50; // 50px threshold
+
+      setShowScrollDownButton(!isNearBottom && messages.length > 0);
+    };
+
+    if (chatBox) {
+      chatBox.addEventListener("scroll", handleScroll);
+      return () => chatBox.removeEventListener("scroll", handleScroll);
+    }
+  }, [messages.length]);
 
   useEffect(() => {
-    if (chatBoxRef.current) {
+    if (messages.length > prevMessagesLength.current) {
       chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
     }
+    prevMessagesLength.current = messages.length;
   }, [messages]);
+
+  // Highlight matches and scroll to the current one
+  useEffect(() => {
+    if (currentMatchIndex !== -1 && messageRefs.current[currentMatchIndex]) {
+      messageRefs.current[currentMatchIndex].scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }, [currentMatchIndex]);
 
   const handleSendMessage = () => {
     if (userInput.trim() === "") return;
 
-    const newUserMessage = { text: userInput.trim(), isUser: true };
-    const updatedMessages = [...messages, newUserMessage];
-    setMessages(updatedMessages);
+    setShowInitialMessage(false);
 
+    const newUserMessage = { text: userInput.trim(), isUser: true };
+    setMessages((prevMessages) => [...prevMessages, newUserMessage]);
     setUserInput("");
+    setShowEmojiPicker(false);
+
+    setIsLoading(true);
+    const loadingMessage = {
+      text: (
+        <>
+          <span className="bouncing-dots" style={{ "--delay": "0s" }}>
+            •
+          </span>
+          <span className="bouncing-dots" style={{ "--delay": "0.2s" }}>
+            •
+          </span>
+          <span className="bouncing-dots" style={{ "--delay": "0.4s" }}>
+            •
+          </span>
+        </>
+      ),
+      isUser: false,
+      isLoading: true,
+    };
+    setMessages((prevMessages) => [...prevMessages, loadingMessage]);
 
     setTimeout(() => {
       const nextBotResponse =
@@ -46,12 +131,19 @@ const ChatBot = () => {
         liked: false,
         disliked: false,
         feedbackText: null,
+        showFeedback: true,
       };
-      setMessages((prevMessages) => [...prevMessages, newBotMessage]);
+
+      setMessages((prevMessages) => {
+        const updatedMessages = prevMessages.filter(
+          (message) => !message.isLoading
+        );
+        return [...updatedMessages, newBotMessage];
+      });
+      setIsLoading(false);
     }, 500);
   };
 
-  // Handle like/dislike
   const handleFeedback = (index, type) => {
     setMessages((prevMessages) =>
       prevMessages.map((message, i) => {
@@ -76,47 +168,138 @@ const ChatBot = () => {
     }
   };
 
-  return (
-    <div style={styles.appContainer}>
-      <div style={styles.chatContainer}>
-        <div style={styles.header}>Chat Bot</div>
-        <div ref={chatBoxRef} style={styles.chatBox}>
-          {messages.map((message, index) => (
-            <div key={index} style={styles.messageWrapper}>
-              <div
-                style={{
-                  ...styles.chatMessage,
-                  ...(message.isUser ? styles.userMessage : styles.botMessage),
-                }}
-              >
-                <p>{message.text}</p>
-              </div>
+  const handleToggleEmojiPicker = () => {
+    setShowEmojiPicker((prev) => !prev);
+  };
 
-              {/* Show feedback row for bot messages only */}
-              {!message.isUser && (
-                <div style={styles.feedbackRow}>
-                  <div style={styles.feedbackButtons}>
+  const handleEmojiSelect = (emoji) => {
+    setUserInput((prevInput) => prevInput + emoji);
+  };
+
+  // Search logic
+  const handleSearchChange = (e) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+    if (term.trim() === "") {
+      setMatchedIndices([]);
+      setCurrentMatchIndex(-1);
+      return;
+    }
+    const matches = messages
+      .map((message, index) =>
+        message.text &&
+        typeof message.text === "string" &&
+        message.text.toLowerCase().includes(term.toLowerCase())
+          ? index
+          : null
+      )
+      .filter((index) => index !== null);
+    setMatchedIndices(matches);
+    if (matches.length > 0) {
+      setCurrentMatchIndex(matches[0]);
+    } else {
+      setCurrentMatchIndex(-1);
+    }
+  };
+
+  const handleNextMatch = () => {
+    if (matchedIndices.length > 0) {
+      const currentIndex = matchedIndices.indexOf(currentMatchIndex);
+      const nextIndex = (currentIndex + 1) % matchedIndices.length;
+      setCurrentMatchIndex(matchedIndices[nextIndex]);
+    }
+  };
+
+  const handlePreviousMatch = () => {
+    if (matchedIndices.length > 0) {
+      const currentIndex = matchedIndices.indexOf(currentMatchIndex);
+      const prevIndex =
+        (currentIndex - 1 + matchedIndices.length) % matchedIndices.length;
+      setCurrentMatchIndex(matchedIndices[prevIndex]);
+    }
+  };
+
+  const handleScrollDown = () => {
+    if (chatBoxRef.current) {
+      chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+      setShowScrollDownButton(false);
+    }
+  };
+
+  return (
+    <div className="app-container">
+      <div className="chat-container">
+        <div className="header">Chat Bot</div>
+        <div className="search-bar-container">
+          <input
+            type="text"
+            placeholder="Search chat..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+            className="search-input"
+          />
+          {matchedIndices.length > 0 && (
+            <div className="search-controls">
+              <span>
+                {matchedIndices.indexOf(currentMatchIndex) + 1} of{" "}
+                {matchedIndices.length}
+              </span>
+              <button onClick={handlePreviousMatch}>▲</button>
+              <button onClick={handleNextMatch}>▼</button>
+            </div>
+          )}
+        </div>
+        <div
+          ref={chatBoxRef}
+          className="chat-box"
+          style={{ position: "relative" }}
+        >
+          {showInitialMessage && (
+            <div className="initial-message-wrapper">
+              <div className="chat-message initial-message">
+                <p>{welcomeMessage}</p>
+              </div>
+            </div>
+          )}
+          {messages.map((message, index) => (
+            <div
+              key={index}
+              className={`message-wrapper ${
+                matchedIndices.includes(index) ? "highlighted-message" : ""
+              } ${
+                index === currentMatchIndex ? "current-highlighted-message" : ""
+              }`}
+              ref={(el) => (messageRefs.current[index] = el)}
+            >
+              <div
+                className={`chat-message ${
+                  message.isUser ? "user-message" : "bot-message"
+                } ${message.isLoading ? "loading-message" : ""}`}
+              >
+                {message.isLoading ? message.text : <p>{message.text}</p>}
+              </div>
+              {!message.isUser && message.showFeedback && (
+                <div className="feedback-row">
+                  <div className="feedback-buttons">
                     <button
-                      style={{
-                        ...styles.feedbackButton,
-                        color: message.liked ? "#10b981" : "#9ca3af",
-                      }}
+                      className={`feedback-button ${
+                        message.liked ? "liked" : ""
+                      }`}
                       onClick={() => handleFeedback(index, "like")}
                     >
-                      <i class="bi bi-hand-thumbs-up-fill"></i>
+                      <i className="bi bi-hand-thumbs-up-fill"></i>
                     </button>
                     <button
-                      style={{
-                        ...styles.feedbackButton,
-                        color: message.disliked ? "#ef4444" : "#9ca3af",
-                      }}
+                      className={`feedback-button ${
+                        message.disliked ? "disliked" : ""
+                      }`}
                       onClick={() => handleFeedback(index, "dislike")}
                     >
-                      <i class="bi bi-hand-thumbs-down-fill"></i>
+                      <i className="bi bi-hand-thumbs-down-fill"></i>
                     </button>
                   </div>
                   {message.feedbackText && (
-                    <span style={styles.feedbackText}>
+                    <span className="feedback-text">
                       {message.feedbackText}
                     </span>
                   )}
@@ -124,27 +307,98 @@ const ChatBot = () => {
               )}
             </div>
           ))}
+          {showScrollDownButton && (
+            <button
+              className="scroll-down-button"
+              onClick={handleScrollDown}
+              style={{
+                position: "fixed",
+                bottom: "166px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: "40px",
+                height: "40px",
+                background: "#007bff",
+                color: "white",
+                border: "none",
+                borderRadius: "50%",
+                cursor: "pointer",
+                boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 0.3s ease",
+                zIndex: 10,
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = "#0056b3";
+                e.target.style.transform = "translateX(-50%) translateY(-2px)";
+                e.target.style.boxShadow = "0 4px 15px rgba(0, 0, 0, 0.3)";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = "#007bff";
+                e.target.style.transform = "translateX(-50%) translateY(0)";
+                e.target.style.boxShadow = "0 2px 10px rgba(0, 0, 0, 0.2)";
+              }}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+          )}
         </div>
-
-        {/* Input row */}
-        <div style={styles.inputContainer}>
+        <div className="input-container">
+          <div className="emoji-picker-container">
+            {showEmojiPicker && (
+              <div className="emoji-picker">
+                {emojis.map((emoji, index) => (
+                  <span
+                    key={index}
+                    className="emoji-button"
+                    onClick={() => handleEmojiSelect(emoji)}
+                  >
+                    {emoji}
+                  </span>
+                ))}
+              </div>
+            )}
+            <button
+              ref={emojiButtonRef}
+              className="emoji-toggle-button"
+              onClick={handleToggleEmojiPicker}
+            >
+              😊
+            </button>
+          </div>
           <input
             type="text"
             id="user-input"
             placeholder="Type your message..."
-            style={styles.inputField}
+            className="input-field"
             value={userInput}
             onChange={(e) => setUserInput(e.target.value)}
             onKeyPress={handleKeyPress}
+            disabled={isLoading}
           />
           <button
             id="send-button"
-            style={styles.sendButton}
+            className="send-button"
             onClick={handleSendMessage}
+            disabled={isLoading}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              style={styles.sendIcon}
+              className="send-icon"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -164,123 +418,3 @@ const ChatBot = () => {
 };
 
 export default ChatBot;
-
-const styles = {
-  appContainer: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: "100vh",
-    padding: "1rem",
-    fontFamily: "Inter, sans-serif",
-  },
-  chatContainer: {
-    width: "100%",
-    maxWidth: "42rem",
-    height: "90vh",
-    backgroundColor: "#fff",
-    borderRadius: "1.5rem",
-    boxShadow:
-      "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-    display: "flex",
-    flexDirection: "column",
-    overflow: "hidden",
-  },
-  header: {
-    backgroundColor: "#2563eb",
-    color: "#fff",
-    padding: "1.5rem",
-    textAlign: "center",
-    fontSize: "1.5rem",
-    fontWeight: "600",
-    borderTopLeftRadius: "1.5rem",
-    borderTopRightRadius: "1.5rem",
-  },
-  chatBox: {
-    flex: 1,
-    padding: "1.5rem",
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-    overflowY: "auto",
-  },
-  messageWrapper: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-    gap: "0.25rem",
-  },
-  chatMessage: {
-    maxWidth: "75%",
-    padding: "0.75rem",
-    borderRadius: "1rem",
-  },
-  userMessage: {
-    backgroundColor: "#3b82f6",
-    color: "#fff",
-    alignSelf: "flex-end",
-  },
-  botMessage: {
-    backgroundColor: "#e5e7eb",
-    color: "#1f2937",
-    alignSelf: "flex-start",
-  },
-  feedbackRow: {
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: "0.75rem",
-    marginLeft: "0.5rem",
-  },
-  feedbackButtons: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-  },
-  feedbackButton: {
-    fontSize: "1.25rem",
-    cursor: "pointer",
-    transition: "color 200ms ease-in-out",
-    background: "transparent",
-    border: "none",
-  },
-  feedbackText: {
-    fontSize: "0.75rem",
-    color: "#6b7280",
-    fontStyle: "italic",
-  },
-  inputContainer: {
-    padding: "1.5rem",
-    borderTop: "1px solid #e5e7eb",
-    display: "flex",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderBottomLeftRadius: "1.5rem",
-    borderBottomRightRadius: "1.5rem",
-  },
-  inputField: {
-    flex: 1,
-    padding: "0.75rem",
-    border: "1px solid #d1d5db",
-    borderRadius: "9999px",
-    outline: "none",
-    transition: "all 200ms ease-in-out",
-  },
-  sendButton: {
-    marginLeft: "1rem",
-    backgroundColor: "#2563eb",
-    color: "#fff",
-    padding: "0.75rem",
-    borderRadius: "9999px",
-    boxShadow:
-      "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-    transition: "background-color 200ms ease-in-out",
-    border: "none",
-    cursor: "pointer",
-  },
-  sendIcon: {
-    height: "1.5rem",
-    width: "1.5rem",
-    transform: "rotate(90deg)", // right direction
-  },
-};
