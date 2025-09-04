@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import EmojiPicker from "emoji-picker-react";
 import "../plugins/custom_css/chatbot.css";
 
 const ChatBot = () => {
@@ -18,45 +19,29 @@ const ChatBot = () => {
     "What can I do for you?",
   ];
 
-  const emojis = [
-    "😀",
-    "😂",
-    "🥰",
-    "👍",
-    "🙏",
-    "❤️",
-    "🎉",
-    "🔥",
-    "💯",
-    "🤯",
-    "🚀",
-    "💡",
-    "🤔",
-  ];
-
   const [messages, setMessages] = useState([]);
   const [showInitialMessage, setShowInitialMessage] = useState(true);
-  const [welcomeMessage, setWelcomeMessage] = useState(""); // Store the welcome message
+  const [welcomeMessage, setWelcomeMessage] = useState("");
   const [userInput, setUserInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(""); // State for the search term
-  const [matchedIndices, setMatchedIndices] = useState([]); // Array of indices for matches
-  const [currentMatchIndex, setCurrentMatchIndex] = useState(-1); // Index of the current match
-  const [showScrollDownButton, setShowScrollDownButton] = useState(false); // State for scroll down button
+  const [searchTerm, setSearchTerm] = useState("");
+  const [matchedIndices, setMatchedIndices] = useState([]);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(-1);
+  const [showScrollDownButton, setShowScrollDownButton] = useState(false);
+  const [showSearchBar, setShowSearchBar] = useState(false);
+  const [searchBarClosing, setSearchBarClosing] = useState(false);
   const chatBoxRef = useRef(null);
   const prevMessagesLength = useRef(0);
   const emojiButtonRef = useRef(null);
-  const messageRefs = useRef([]); // Ref for each message element
+  const messageRefs = useRef([]);
 
-  // Set welcome message only once when component mounts
   useEffect(() => {
     setWelcomeMessage(
       welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)]
     );
   }, []);
 
-  // Handle scroll detection for scroll down button
   useEffect(() => {
     const chatBox = chatBoxRef.current;
 
@@ -64,7 +49,7 @@ const ChatBot = () => {
       if (!chatBox) return;
 
       const { scrollTop, scrollHeight, clientHeight } = chatBox;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 50; // 50px threshold
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
 
       setShowScrollDownButton(!isNearBottom && messages.length > 0);
     };
@@ -77,12 +62,14 @@ const ChatBot = () => {
 
   useEffect(() => {
     if (messages.length > prevMessagesLength.current) {
-      chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+      chatBoxRef.current.scrollTo({
+        top: chatBoxRef.current.scrollHeight,
+        behavior: "smooth",
+      });
     }
     prevMessagesLength.current = messages.length;
   }, [messages]);
 
-  // Highlight matches and scroll to the current one
   useEffect(() => {
     if (currentMatchIndex !== -1 && messageRefs.current[currentMatchIndex]) {
       messageRefs.current[currentMatchIndex].scrollIntoView({
@@ -141,7 +128,7 @@ const ChatBot = () => {
         return [...updatedMessages, newBotMessage];
       });
       setIsLoading(false);
-    }, 500);
+    }, 1000);
   };
 
   const handleFeedback = (index, type) => {
@@ -172,8 +159,12 @@ const ChatBot = () => {
     setShowEmojiPicker((prev) => !prev);
   };
 
-  const handleEmojiSelect = (emoji) => {
-    setUserInput((prevInput) => prevInput + emoji);
+  // When an emoji is clicked
+  const handleEmojiClick = (emojiObject) => {
+    setUserInput((prev) => prev + emojiObject.emoji);
+  };
+  const handleToggleSearch = () => {
+    setShowSearchBar((prev) => !prev);
   };
 
   // Search logic
@@ -221,7 +212,10 @@ const ChatBot = () => {
 
   const handleScrollDown = () => {
     if (chatBoxRef.current) {
-      chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+      chatBoxRef.current.scrollTo({
+        top: chatBoxRef.current.scrollHeight,
+        behavior: "smooth",
+      });
       setShowScrollDownButton(false);
     }
   };
@@ -230,25 +224,69 @@ const ChatBot = () => {
     <div className="app-container">
       <div className="chat-container">
         <div className="header">Chat Bot</div>
-        <div className="search-bar-container">
-          <input
-            type="text"
-            placeholder="Search chat..."
-            value={searchTerm}
-            onChange={handleSearchChange}
-            className="search-input"
-          />
-          {matchedIndices.length > 0 && (
-            <div className="search-controls">
-              <span>
-                {matchedIndices.indexOf(currentMatchIndex) + 1} of{" "}
-                {matchedIndices.length}
-              </span>
-              <button onClick={handlePreviousMatch}>▲</button>
-              <button onClick={handleNextMatch}>▼</button>
-            </div>
-          )}
-        </div>
+        {showSearchBar && (
+          <div
+            className={`search-bar-container ${
+              searchBarClosing ? "fade-out-search" : "fade-in-search"
+            }`}
+            style={{ position: "relative" }}
+          >
+            <input
+              type="text"
+              placeholder="Search chat..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              className="search-input"
+            />
+
+            {searchTerm && (
+              <button
+                onClick={() => {
+                  setSearchTerm("");
+                  setMatchedIndices([]);
+                  setCurrentMatchIndex(-1);
+                }}
+                className="clear-search-button btn btn-outline-danger btn-sm"
+                style={{
+                  position: "absolute",
+                  right: "103px",
+                  top: "53%",
+                  transform: "translateY(-50%)",
+                }}
+              >
+                ✖
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                setSearchBarClosing(true);
+                setTimeout(() => {
+                  setShowSearchBar(false);
+                  setSearchBarClosing(false);
+                }, 300);
+              }}
+              className="close-search-button btn btn-outline-secondary btn-sm"
+            >
+              ✖
+            </button>
+
+            {matchedIndices.length > 0 && (
+              <div className="search-controls">
+                <span>
+                  {matchedIndices.indexOf(currentMatchIndex) + 1} of{" "}
+                  {matchedIndices.length}
+                </span>
+                <button onClick={handlePreviousMatch}>
+                  <i className="bi bi-chevron-double-up"></i>
+                </button>
+                <button onClick={handleNextMatch}>
+                  <i className="bi bi-chevron-double-down"></i>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         <div
           ref={chatBoxRef}
           className="chat-box"
@@ -361,23 +399,22 @@ const ChatBot = () => {
           <div className="emoji-picker-container">
             {showEmojiPicker && (
               <div className="emoji-picker">
-                {emojis.map((emoji, index) => (
-                  <span
-                    key={index}
-                    className="emoji-button"
-                    onClick={() => handleEmojiSelect(emoji)}
-                  >
-                    {emoji}
-                  </span>
-                ))}
+                <EmojiPicker onEmojiClick={handleEmojiClick} />
               </div>
             )}
+
             <button
               ref={emojiButtonRef}
-              className="emoji-toggle-button"
+              className="emoji-toggle-button btn btn-outline-primary btn-sm"
               onClick={handleToggleEmojiPicker}
             >
-              😊
+              <i className="bi bi-emoji-smile"></i>
+            </button>
+            <button
+              className="search-toggle-button btn btn-outline-primary btn-sm"
+              onClick={handleToggleSearch}
+            >
+              <i className="bi bi-search"></i>
             </button>
           </div>
           <input

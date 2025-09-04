@@ -59,6 +59,8 @@
   gap: 0.5rem;
   font-size: 0.875rem;
   color: #6b7280;
+  position: absolute;
+  right: 154px;
 }
 
 .search-controls button {
@@ -92,7 +94,31 @@
   border-radius: 1rem;
   padding: 0.25rem 0.5rem;
 }
+.fade-in-search {
+  opacity: 0;
+  transform: translateY(-10px);
+  animation: fadeInSearch 0.3s ease forwards;
+}
 
+.fade-out-search {
+  opacity: 1;
+  transform: translateY(0);
+  animation: fadeOutSearch 0.3s ease forwards;
+}
+
+@keyframes fadeInSearch {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOutSearch {
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
 /* Styles for the highlighted messages */
 .highlighted-message {
   background-color: #fef9c3; /* A soft yellow background for all matches */
@@ -211,6 +237,10 @@
 
 .emoji-picker-container {
   position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-right: 20px;
 }
 
 .emoji-picker {
@@ -218,13 +248,8 @@
   bottom: 100%;
   left: 0;
   margin-bottom: 0.5rem;
-  background-color: #fff;
   border-radius: 0.75rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06);
   padding: 0.75rem;
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
   gap: 0.5rem;
 }
 
@@ -236,16 +261,22 @@
   transition: background-color 0.2s;
   text-align: center;
 }
-
+.clear-search-button {
+  position: "absolute";
+  right: "50px";
+  top: "50%";
+  transform: "translateY(-50%)";
+  background: "transparent";
+  border: "none";
+  cursor: "pointer";
+  font-size: "16px";
+  color: "#888";
+}
 .emoji-button:hover {
   background-color: #e5e7eb;
 }
 
 .emoji-toggle-button {
-  background-color: transparent;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
   margin-right: 0.5rem;
 }
 
@@ -289,23 +320,23 @@
   width: 1.5rem;
   transform: rotate(90deg);
 }
-
 /* .scroll-down-button {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  width: 40px;
-  height: 40px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0, 123, 255, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
+  position: "fixed";
+  bottom: "166px";
+  left: "50%";
+  transform: "translateX(-50%)";
+  width: "40px";
+  height: "40px";
+  background: "#007bff";
+  color: "white";
+  border: "none";
+  border-radius: "50%";
+  cursor: "pointer";
+  box-shadow: "0 2px 10px rgba(0, 0, 0, 0.2)";
+  display: "flex";
+  align-items: "center";
+  justify-content: "center";
+  transition: "all 0.3s ease";
   z-index: 10;
 }
 
